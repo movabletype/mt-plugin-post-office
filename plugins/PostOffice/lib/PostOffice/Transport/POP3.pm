@@ -28,6 +28,12 @@ sub init {
         #DEBUG    => 1,
     ) or die "Failed to connect: " . $@;
 
+    # Reports "welcome" if successful, or an explanation of the connection
+    # failure if not connected. That means yes, the "or die..." above doesn't 
+    # seem to work.
+    print STDERR '[PostOffice] POP3 client connection: ' . $obj->{client}->{MESG} . "\n"
+        if $PostOffice::DEBUG;
+
     return;
 }
 

@@ -15,7 +15,7 @@ package PostOffice;
 use strict;
 use MT::Util qw(html_text_transform perl_sha1_digest_hex);
 
-our $DEBUG = 0;
+our $DEBUG = 1;
 
 sub plugin {
     return MT->component('postoffice');
@@ -194,6 +194,7 @@ sub process_message_parts {
     # now process, and build document
     $text = '';
     my $file_num = 0;
+    
 
     foreach my $part (@parts) {
         my ($media_type, $part_charset) =
@@ -202,7 +203,12 @@ sub process_message_parts {
             $charset = $part_charset;
         }
         if ($media_type =~ m!^text/(html|plain)!) {
+
+            print STDERR '[PostOffice body text] From $part: ' . $part->body . "\n";
+
             my $body = MT::I18N::encode_text($part->body, $part_charset);
+            
+            print STDERR "[PostOffice body text] Processed through encode_text: $body\n";
 
             if (($media_type eq 'text/plain') && ($format eq 'richtext')) {
                 # we're embedding html, so format must be richtext.
@@ -231,10 +237,18 @@ sub process_message_parts {
                 # this is a file embedded for reference in the html; don't
                 # output it in the body of the post.
                 next if $file->{content_id};
-                $text .= $pkg->format_embedded_asset($file);
+
+                # Has the plugin has been configured to embed a link to the 
+                # asset in the Entry Body? The Objectasset relationship is
+                # created independent of this.
+                if ($cfg->{embed_attachments}) {
+                    $text .= $pkg->format_embedded_asset($file);
+                }
             }
         }
     }
+
+    print STDERR '[PostOffice body text] from $text: ' . $text . "\n";
 
     $msg->{subject} = $parsed->header('Subject');
 
@@ -264,6 +278,9 @@ sub process_message_parts {
     require MT::Sanitize;
     $text = MT::Sanitize->sanitize($text,
         "a href rel,b,i,strong,em,p,br/,ul,li,ol,blockquote,pre,div,span,table,tr,th rowspan colspan,td rowspan colspan,dd,dl,dt,img height width src alt");
+    
+    print STDERR "[PostOffice body text] Sanitized: $text\n";
+    
     $msg->{text}  = $text;
     $msg->{format} = $format;
     $msg->{files} = \@files;
@@ -323,6 +340,8 @@ sub process_message {
     my $blog = MT::Blog->load($blog_id);
 
     $pkg->process_message_parts($blog, $msg, $cfg, $au);
+
+    print STDERR '[PostOffice body text] final $msg ' . $msg->{text} . "\n";
 
     require MT::Entry;
     my $entry = MT::Entry->new();
@@ -415,9 +434,15 @@ sub process_message {
 
     if ($entry->status == 2) {    # publish
         MT->rebuild_entry(
-            Entry             => $entry,
-            BuildDependencies => 1,
-        );
+            Entry => $entry,
+            BuildDependecies => 1,
+        )
+            or MT->log({
+                blog_id => $blog_id,
+                level   => MT::Log::ERROR(),
+                message => 'Post Office encountered an error while trying to '
+                    . 'publish: ' . MT->errstr,
+            });
     }
 
     MT->run_callbacks('api_post_save.entry', MT->instance, $entry, undef);
@@ -488,6 +513,13 @@ sub process_messages {
             next;
         }
         my $from = lc $addr->address;
+        
+        # If any email address is allowed to post then just set the current
+        # $from to be a key in the $addresses hash.
+        if ($cfg->{allow_any_email}) {
+            $addresses->{$from} = 1;
+        }
+        
         unless ($addresses->{$from}) {
             print STDERR "[PostOffice] Unknown author address for message "
               . $msg->{'message-id'}
