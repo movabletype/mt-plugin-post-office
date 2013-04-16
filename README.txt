@@ -1,7 +1,7 @@
 ## Post Office, a plugin for Movable Type
 ## Author: Six Apart
 ## Version: 1.1
-## Released under GPL2
+## Released under MIT
 
 ## OVERVIEW ##
 
@@ -43,8 +43,8 @@ Source repository:
 
 ## LICENSE ##
 
-GPL 2.0
+MIT
 
 ## AUTHOR ##
 
-Copyright 2008-2010, Six Apart Ltd., All rights reserved.
+Copyright 2008-2013, Six Apart Ltd., All rights reserved.
