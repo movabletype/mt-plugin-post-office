@@ -43,6 +43,12 @@ sub init {
     $obj->{client}->Authenticated()
         or die "Failed to authenticate";
 
+    if ( $obj->{client}->IsAuthenticated() ) {
+        print STDERR "[PostOffice] IMAP folders: "
+            . join( ', ', $obj->{client}->folders() ) . "\n"
+            if $PostOffice::DEBUG;
+    };
+
     return $obj;
 }
 
